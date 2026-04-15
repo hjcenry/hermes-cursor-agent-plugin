@@ -1,70 +1,72 @@
 # Hermes Cursor Agent Plugin
 
-在 **Hermes** 网关中调用本机 **Cursor Agent CLI**（`agent` / `cursor agent`），以 `stream-json` 方式拉取会话与工具调用结果，供上层 Agent（如 Discord 机器人）做代码分析、修改与计划。
+**Language:** English | [简体中文](./README.zh-CN.md)
 
-**源码仓库**
+Invoke the local **Cursor Agent CLI** (`agent` / `cursor agent`) from the **Hermes** gateway with `stream-json` output for sessions and tool calls—useful for upstream agents (e.g. Discord bots) to analyze, plan, or edit code.
 
-- HTTPS：`https://github.com/hjcenry/hermes-cursor-agent-plugin.git`
-- SSH：`git@github.com:hjcenry/hermes-cursor-agent-plugin.git`
+**Repository**
+
+- HTTPS: `https://github.com/hjcenry/hermes-cursor-agent-plugin.git`
+- SSH: `git@github.com:hjcenry/hermes-cursor-agent-plugin.git`
 
 ---
 
 <a id="cursor-cli-prerequisite"></a>
 
-## 先决条件：安装 Cursor Agent（CLI）
+## Prerequisite: Install Cursor Agent (CLI)
 
-本插件**不会**替你安装 Cursor CLI，你需要先在机器上安装 **Cursor Agent**，并确保终端能运行 **`agent`**（或仅有 `cursor` 时由插件补全子命令）。
+This plugin **does not** install the Cursor CLI for you. Install **Cursor Agent** on the machine first and ensure **`agent`** works in a terminal (or only `cursor` is on PATH—the plugin can inject the `agent` subcommand).
 
-**官方文档（必读）：** [Cursor CLI 概览](https://cursor.com/cn/docs/cli/overview)
+**Official docs:** [Cursor CLI overview](https://cursor.com/cn/docs/cli/overview) (Chinese site; English docs are linked from Cursor’s main docs.)
 
-按官方说明，安装方式如下（与文档一致）：
+Install per Cursor’s instructions:
 
-**macOS / Linux / WSL：**
+**macOS / Linux / WSL:**
 
 ```bash
 curl https://cursor.com/install -fsS | bash
 ```
 
-**Windows（PowerShell）：**
+**Windows (PowerShell):**
 
 ```powershell
 irm 'https://cursor.com/install?win32=true' | iex
 ```
 
-安装完成后，在终端执行一次交互式会话，确认可用：
+Verify interactively:
 
 ```bash
 agent
 ```
 
-更多用法（模式、非交互 `-p`、会话续写等）见 [官方 CLI 概览](https://cursor.com/cn/docs/cli/overview)。
+For modes, non-interactive `-p`, sessions, etc., see the [official CLI overview](https://cursor.com/cn/docs/cli/overview).
 
 ---
 
-## 功能概览
+## Features
 
-- 工具名：`cursor_agent`（工具集 `cursor_agent`）
-- 非交互：`agent -p "…" --trust --output-format stream-json …`
-- 工作目录：解析后的项目路径（`cwd`），限制在配置的工程目录下操作
-- 可选：按项目恢复会话 `session_id`、项目别名映射、超时与 MCP 开关
-
----
-
-## 依赖（必读）
-
-| 依赖 | 说明 |
-|------|------|
-| **Cursor Agent CLI** | 见上文 **[先决条件：安装 Cursor Agent](#cursor-cli-prerequisite)**；未完成安装则本插件无法工作。 |
-| **Hermes** | 本仓库是 **Hermes 插件**，需由 Hermes 加载；插件内 `from hermes_constants import get_hermes_home`，与 Hermes 主工程一起运行。 |
-| **账号** | Cursor 订阅 / 登录状态由 CLI 自行处理（如 `agent login`）。 |
+- Tool name: `cursor_agent` (toolset `cursor_agent`)
+- Non-interactive: `agent -p "…" --trust --output-format stream-json …`
+- Working directory: resolved project path (`cwd`)
+- Optional: per-project `session_id` resume, project aliases, timeouts, MCP toggles
 
 ---
 
-## 一键安装
+## Requirements
 
-### Windows（PowerShell / CMD）
+| Requirement | Notes |
+|-------------|--------|
+| **Cursor Agent CLI** | See **[Prerequisite: Install Cursor Agent](#cursor-cli-prerequisite)**. Without it, this plugin cannot run. |
+| **Hermes** | Hermes plugin runtime; uses `from hermes_constants import get_hermes_home`. |
+| **Account** | Cursor subscription / login via CLI (e.g. `agent login`). |
 
-在**本仓库根目录**（含 `install.bat`）执行：
+---
+
+## Install (one command)
+
+### Windows (PowerShell / CMD)
+
+From this repo root (where `install.bat` lives):
 
 ```cmd
 install.bat
@@ -77,113 +79,98 @@ chmod +x install.sh
 ./install.sh
 ```
 
-### 安装脚本做了什么
+### What the scripts do
 
-1. 将插件文件复制到  
-   **`%USERPROFILE%\.hermes\plugins\cursor-agent`**（Windows）  
-   或 **`$HOME/.hermes/plugins/cursor-agent`**（Linux/macOS）。  
-   环境变量 **`HERMES_HOME`** 若已设置，则根目录为 **`$HERMES_HOME`**（与 Hermes 一致）。
-2. 若 **`cursor_agent.json` 尚不存在**，则把 **`cursor_agent.example.json`** 复制为：  
-   **`%USERPROFILE%\.hermes\cursor_agent.json`**（或 **`$HERMES_HOME/cursor_agent.json`**）。  
-   **不会覆盖**已有配置文件。
-3. 提示你 **重启 Hermes Gateway / CLI** 以加载插件。
+1. Copy plugin files to **`%USERPROFILE%\.hermes\plugins\cursor-agent`** (Windows) or **`$HOME/.hermes/plugins/cursor-agent`** (Linux/macOS). If **`HERMES_HOME`** is set, it uses that as the Hermes home.
+2. If **`cursor_agent.json` does not exist**, copy **`cursor_agent.example.json`** to **`~/.hermes/cursor_agent.json`** (or **`$HERMES_HOME/cursor_agent.json`**). **Existing files are not overwritten.**
+3. Remind you to **restart** the Hermes Gateway / CLI.
 
 ---
 
-## 配置文件：`cursor_agent.json` 放在哪里？
+## Where to put `cursor_agent.json`
 
-**重要：与插件目录分开，放在 Hermes 用户目录根下。**
+**Important:** Not inside `plugins/`—place it under the Hermes **user home** root.
 
-| 平台 | 路径 |
-|------|------|
+| Platform | Path |
+|----------|------|
 | Windows | **`%USERPROFILE%\.hermes\cursor_agent.json`** |
 | Linux / macOS | **`~/.hermes/cursor_agent.json`** |
-| 自定义 | 若 Hermes 使用 **`HERMES_HOME`**，则为 **`$HERMES_HOME/cursor_agent.json`** |
+| Custom | **`$HERMES_HOME/cursor_agent.json`** if you use **`HERMES_HOME`** |
 
-**不要**放在 `plugins/cursor-agent/` 里；插件代码通过 `get_hermes_home() / "cursor_agent.json"` 读取。
-
-安装脚本会在首次安装时自动生成一份模板；若你手动创建，可复制本仓库的 **`cursor_agent.example.json`** 再改。
+Do **not** put it under `plugins/cursor-agent/`; the plugin reads `get_hermes_home() / "cursor_agent.json"`.
 
 ---
 
-## `cursor_agent.json` 字段说明
+## `cursor_agent.json` fields
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| **`projects`** | 对象 | 项目别名 → **绝对路径**。模型传短别名即可，避免传长路径。 |
-| **`default_timeout_sec`** | 数字 | 单次运行总超时（秒）。 |
-| **`no_output_timeout_sec`** | 数字 | 无输出超时（秒）。 |
-| **`enable_mcp`** | 布尔 | 是否传 `--approve-mcps --force`（若 CLI 不支持可改为 `false`）。 |
-| **`max_concurrent`** | 数字 | 插件内并发上限。 |
-| **`model`** | 字符串或 null | `null` 表示使用 CLI 默认模型；否则传 `--model`。 |
-| **`prefix_args`** | 字符串数组 | 插入在可执行文件之后、标准参数之前；一般 **`[]`** 即可。 |
-| **`agent_path`** | 字符串或 null | 显式指定 `cursor`/`agent`/`Cursor.exe` 的完整路径；`null` 用自动探测。 |
+| Field | Type | Description |
+|-------|------|-------------|
+| **`projects`** | object | Alias → **absolute path** to repo. |
+| **`default_timeout_sec`** | number | Total run timeout (seconds). |
+| **`no_output_timeout_sec`** | number | Stall timeout (seconds). |
+| **`enable_mcp`** | bool | Pass `--approve-mcps --force` (set `false` if your CLI rejects these flags). |
+| **`max_concurrent`** | number | Max concurrent runs in the plugin. |
+| **`model`** | string or null | `null` = CLI default; otherwise `--model`. |
+| **`prefix_args`** | string array | Inserted after the executable, before standard flags; usually **`[]`**. |
+| **`agent_path`** | string or null | Full path to `cursor` / `agent` / `Cursor.exe`; `null` = auto-detect. |
 
-环境变量可覆盖部分项（见 `config.py`），例如：
-
-- **`HERMES_CURSOR_AGENT_BIN`** → `agent_path`
-- **`HERMES_CURSOR_AGENT_TIMEOUT_SEC`** 等
+Environment overrides (see `config.py`), e.g. **`HERMES_CURSOR_AGENT_BIN`** → `agent_path`.
 
 ---
 
-## 在 Hermes 中启用
+## Enable in Hermes
 
-1. 在 Hermes 网关配置里启用工具集 **`cursor_agent`**（与 `hermes-cli` 等并列，视你的 `config.yaml` 而定）。
-2. **安装** 并 **重启** Gateway。
-3. 确认 `cursor_agent.json` 里 **`projects`** 已配置好路径。
-
----
-
-## 踩坑与排查（常见问题）
-
-### 1. Electron / Chromium 提示：`p`、`trust`、`output-format` 不是已知选项
-
-**含义：** 参数被传给了 **Cursor 主进程（Electron）**，而不是 `agent` 子命令。
-
-**处理：**
-
-- 插件已尽量自动插入 `agent` 子命令；若仍失败，在 **`cursor_agent.json`** 中设置：  
-  **`"prefix_args": ["agent"]`**  
-- 或设置环境变量 **`HERMES_CURSOR_AGENT_BIN`** 为 **`cursor.exe` / `agent` 的完整路径**（与 `where cursor` 在交互终端里一致；Gateway 服务的 PATH 可能更短）。
-
-### 2. Windows 下 `.cmd` 启动与参数丢失
-
-插件对 **`.cmd`/`.bat`** 使用 **`cmd.exe /c`** 且 **`shell=False`**，避免参数被吞掉。请使用**最新**插件代码。
-
-### 3. `session_id` 为 null、没有任何 stream-json
-
-**可能原因：** 子进程 stdout 在 Windows 上按 **系统代码页** 解码，**UTF-8** 的 JSON 行解析失败。插件已强制 **`encoding=utf-8`**。
-
-**若仍失败：** 确认本机已安装并可运行 **`agent`**（见官方文档）；查看 Hermes 日志中的 **`cursor_agent spawn argv:`** 是否包含 **`agent`** 与 **`-p`**。
-
-### 4. `cursor_agent.json` 放错位置
-
-放在 **`~/.hermes/cursor_agent.json`**，而不是 `plugins/*/cursor_agent.json`。放错位置会导致仍用默认空配置。
-
-### 5. 修改配置后不生效
-
-修改 JSON 后一般 **重启 Gateway** 再试。
-
-### 6. 仅 `cursor` 无独立 `agent`
-
-多数环境安装官方 CLI 后 **`agent`** 可用；若 PATH 只有 **`cursor`**，插件会拼 **`cursor` + `agent` + 参数**。
-
-### 7. `prefix_args` 与独立 `agent` 可执行文件
-
-若 PATH 里直接是 **独立 `agent`**（不是 `cursor`），**不要**再写 **`"prefix_args": ["agent"]`**，否则可能变成 **`agent agent …`**。
-
-### 8. 默认模式
-
-默认 **`mode`** 为 **`agent`**（与官方 CLI 一致）；只读分析请显式传 **`ask`**。
+1. Add toolset **`cursor_agent`** to your Hermes gateway config (alongside `hermes-cli`, etc., per your `config.yaml`).
+2. Run **install** and **restart** the Gateway.
+3. Ensure **`projects`** in `cursor_agent.json` points to real paths.
 
 ---
 
-## 仓库结构（开源发布）
+## Troubleshooting
+
+### 1. Electron / Chromium: `p`, `trust`, `output-format` are not known options
+
+**Cause:** Flags reached the **Electron main process** instead of the **`agent`** subcommand.
+
+**Fix:** Plugin tries to inject `agent` automatically. If it still fails, set **`"prefix_args": ["agent"]`** in `cursor_agent.json`, or set **`HERMES_CURSOR_AGENT_BIN`** to the full path of `cursor.exe` / `agent` (Gateway PATH may be shorter than your interactive shell).
+
+### 2. Windows `.cmd` / argument loss
+
+The plugin uses **`cmd.exe /c`** with **`shell=False`** for `.cmd`/`.bat`. Use the **latest** plugin code.
+
+### 3. `session_id` is null, no stream-json
+
+Often **encoding**: plugin forces **UTF-8** for subprocess pipes. If it still fails, confirm **`agent`** works locally; check logs for **`cursor_agent spawn argv:`** and ensure **`agent`** and **`-p`** appear.
+
+### 4. Wrong config path
+
+Use **`~/.hermes/cursor_agent.json`**, not under `plugins/`.
+
+### 5. Config changes ignored
+
+**Restart** the Gateway after edits.
+
+### 6. Only `cursor` on PATH
+
+If the official install provides **`agent`**, prefer that; otherwise the plugin builds `cursor` + `agent` + args.
+
+### 7. Standalone `agent` + `prefix_args`
+
+If your PATH already points to a **standalone `agent`**, do **not** set **`"prefix_args": ["agent"]`** (would become `agent agent …`).
+
+### 8. Default `mode`
+
+Default tool **`mode`** is **`agent`** (matches Cursor CLI). Use **`ask`** for read-only analysis.
+
+---
+
+## Repository layout
 
 ```
 hermes-cursor-agent-plugin/
-  README.md                 # 本说明
-  LICENSE                   # MIT
+  README.md                 # English (default)
+  README.zh-CN.md           # Chinese
+  LICENSE
   plugin.yaml
   __init__.py
   config.py
@@ -195,19 +182,25 @@ hermes-cursor-agent-plugin/
   cursor_agent.example.json
   install.bat
   install.sh
-  TECHNICAL_DESIGN.md       # 可选设计说明
+  TECHNICAL_DESIGN.md
 ```
 
 ---
 
-## 参考
+## References
 
-- [Cursor CLI 概览](https://cursor.com/cn/docs/cli/overview)
-- 本插件源码：[hermes-cursor-agent-plugin](https://github.com/hjcenry/hermes-cursor-agent-plugin)
-- Hermes 侧需将本目录作为插件安装到 `~/.hermes/plugins/cursor-agent`
+- [Cursor CLI overview](https://cursor.com/cn/docs/cli/overview)
+- Plugin repo: [hermes-cursor-agent-plugin](https://github.com/hjcenry/hermes-cursor-agent-plugin)
+- Install this directory to `~/.hermes/plugins/cursor-agent` for Hermes
 
 ---
 
 ## License
 
-MIT，见 [LICENSE](./LICENSE)。
+MIT — see [LICENSE](./LICENSE).
+
+---
+
+### SSH / `known_hosts` note
+
+Adding GitHub’s **host** public key to `~/.ssh/known_hosts` only tells SSH to trust GitHub’s server fingerprint. It does **not** change, replace, or share your **private** key. The same SSH private key continues to work for **all** repositories and hosts you use it with.
