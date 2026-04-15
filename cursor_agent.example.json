@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "demo": "C:/path/to/your/repo"
+  },
+  "default_timeout_sec": 600,
+  "no_output_timeout_sec": 120,
+  "enable_mcp": true,
+  "max_concurrent": 3,
+  "model": null,
+  "prefix_args": [],
+  "agent_path": null
+}

@@ -1,0 +1,4 @@
+name: cursor_agent
+version: 0.1.0
+description: "Invoke the local Cursor Agent CLI for code analysis, plans, and edits (stream-json, verbatim output)."
+author: "Hermes community"
