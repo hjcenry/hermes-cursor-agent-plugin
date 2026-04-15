@@ -11,35 +11,163 @@ Invoke the local **Cursor Agent CLI** (`agent` / `cursor agent`) from the **Herm
 
 ---
 
+## Quick start
+
+1. **Install Cursor Agent (CLI)** on this machine — see [Prerequisite](#prerequisite-install-cursor-agent-cli). Confirm `agent` runs in a terminal.
+2. **Install this plugin** from the repo root: Windows `install.bat`, Linux/macOS `./install.sh`. This copies files to `~/.hermes/plugins/cursor-agent/` and may create `~/.hermes/cursor_agent.json` from the example if missing.
+3. **Edit `cursor_agent.json`** — add at least one **project alias → absolute path** under `projects` (see [Configuring `cursor_agent.json`](#configuring-cursor_agentjson)).
+4. **Enable the toolset in Hermes** — add **`cursor_agent`** to `platform_toolsets` for your platform in **`~/.hermes/config.yaml`** (see [Enable in Hermes `config.yaml`](#enable-in-hermes-configyaml)), or use `hermes tools` to toggle it for that platform.
+5. **Restart** the Hermes Gateway (or CLI session) so plugins and config reload.
+6. **Smoke test** — send a message that uses the `cursor_agent` tool with your alias and a tiny prompt (see [Test prompt](#test-prompt)).
+
+---
+
 <a id="cursor-cli-prerequisite"></a>
 
 ## Prerequisite: Install Cursor Agent (CLI)
 
-This plugin **does not** install the Cursor CLI for you. Install **Cursor Agent** on the machine first and ensure **`agent`** works in a terminal (or only `cursor` is on PATH—the plugin can inject the `agent` subcommand).
+This plugin **does not** install the Cursor CLI. Install **Cursor Agent** first and ensure **`agent`** works in a terminal.
 
-**Official docs:** [Cursor CLI overview](https://cursor.com/cn/docs/cli/overview) (Chinese site; English docs are linked from Cursor’s main docs.)
-
-Install per Cursor’s instructions:
-
-**macOS / Linux / WSL:**
+**Official docs:** [Cursor CLI overview](https://cursor.com/cn/docs/cli/overview)
 
 ```bash
+# macOS / Linux / WSL
 curl https://cursor.com/install -fsS | bash
 ```
 
-**Windows (PowerShell):**
-
 ```powershell
+# Windows (PowerShell)
 irm 'https://cursor.com/install?win32=true' | iex
 ```
 
-Verify interactively:
+Verify:
 
 ```bash
 agent
 ```
 
-For modes, non-interactive `-p`, sessions, etc., see the [official CLI overview](https://cursor.com/cn/docs/cli/overview).
+---
+
+## Install this plugin (one command)
+
+**Windows**
+
+```cmd
+install.bat
+```
+
+**Linux / macOS**
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+The script copies plugin files to **`%USERPROFILE%\.hermes\plugins\cursor-agent`** (or **`$HOME/.hermes/plugins/cursor-agent`**). If **`HERMES_HOME`** is set, that directory is used instead of `~/.hermes`.
+
+If **`cursor_agent.json` does not exist**, it is created from **`cursor_agent.example.json`** (existing files are **not** overwritten).
+
+---
+
+## Configuring `cursor_agent.json`
+
+### Where the file lives
+
+| Platform | Path |
+|----------|------|
+| Windows | **`%USERPROFILE%\.hermes\cursor_agent.json`** |
+| Linux / macOS | **`~/.hermes/cursor_agent.json`** |
+| Custom Hermes home | **`$HERMES_HOME/cursor_agent.json`** |
+
+Do **not** put this file inside `plugins/cursor-agent/`.
+
+### `projects`: alias → absolute path
+
+The **`projects`** object maps a **short name** (what you pass as the tool argument **`project`**) to the **absolute path** of a repository on disk.
+
+- **Key** — any label you like, e.g. `my-app`, `demo`, `work`. Use ASCII; avoid spaces if unsure.
+- **Value** — **absolute** path to the project root (the directory Cursor Agent should use as `cwd`).
+
+Example:
+
+```json
+{
+  "projects": {
+    "my-demo": "D:/code/my-demo",
+    "work": "/home/you/projects/work"
+  },
+  "default_timeout_sec": 600,
+  "no_output_timeout_sec": 120,
+  "enable_mcp": true,
+  "max_concurrent": 3,
+  "model": null,
+  "prefix_args": [],
+  "agent_path": null
+}
+```
+
+When calling the tool, set **`project`** to **`my-demo`** or **`work`**, or pass an **absolute path** string directly if you did not add an alias.
+
+Other fields (timeouts, `model`, `prefix_args`, `agent_path`) are optional; see the table below.
+
+### Field reference
+
+| Field | Type | Description |
+|-------|------|-------------|
+| **`projects`** | object | **Required for aliases:** map **alias → absolute path**. |
+| **`default_timeout_sec`** | number | Total run timeout (seconds). |
+| **`no_output_timeout_sec`** | number | Stall timeout (seconds). |
+| **`enable_mcp`** | bool | Pass `--approve-mcps --force` (set `false` if your CLI rejects them). |
+| **`max_concurrent`** | number | Max concurrent runs in the plugin. |
+| **`model`** | string or null | `null` = CLI default; otherwise `--model`. |
+| **`prefix_args`** | string array | Inserted after the executable; usually **`[]`**. Use **`["agent"]`** only if Electron still receives flags (see [Troubleshooting](#troubleshooting)). |
+| **`agent_path`** | string or null | Full path to `cursor` / `agent` / `Cursor.exe`; `null` = auto-detect. Can also set **`HERMES_CURSOR_AGENT_BIN`**. |
+
+---
+
+## Enable in Hermes `config.yaml`
+
+Hermes loads tools per **platform** (Discord, CLI, etc.). You must include the toolset name **`cursor_agent`** (underscore, not `cursor-agent`) in the list for the platform you use.
+
+Edit **`~/.hermes/config.yaml`** and set **`platform_toolsets`** for your platform, for example:
+
+```yaml
+platform_toolsets:
+  discord:
+    - hermes-cli
+    - cursor_agent
+  cli:
+    - hermes-cli
+    - cursor_agent
+```
+
+Adjust the platform key (`discord`, `cli`, `telegram`, …) to match how you run Hermes. If the list already exists, **append** `- cursor_agent` rather than replacing the whole list.
+
+**Alternative:** run **`hermes tools`**, select your platform, and enable the **Cursor Agent** / **`cursor_agent`** toolset in the checklist (this updates the same config).
+
+After changes, **restart the Gateway**.
+
+---
+
+## Test prompt
+
+After the toolset is enabled and `projects` is set, verify end-to-end:
+
+**Option A — Hermes CLI** (if your CLI session uses `cursor_agent`):
+
+```bash
+hermes chat --toolsets "hermes-cli,cursor_agent" -q "Use the cursor_agent tool: project=my-demo, prompt=Reply with only the first line of README.md in the repo root."
+```
+
+Replace **`my-demo`** with an alias from your `projects` map.
+
+**Option B — Natural language (Discord / other channels)**
+
+Send something explicit so the model picks the right tool, for example:
+
+> Call **cursor_agent** with **project** = `my-demo` and **prompt** = `Print exactly the first line of README.md in the project root, nothing else.`
+
+If the model does not call the tool, shorten the instruction or name the tool directly in the message.
 
 ---
 
@@ -48,7 +176,6 @@ For modes, non-interactive `-p`, sessions, etc., see the [official CLI overview]
 - Tool name: `cursor_agent` (toolset `cursor_agent`)
 - Non-interactive: `agent -p "…" --trust --output-format stream-json …`
 - Working directory: resolved project path (`cwd`)
-- Optional: per-project `session_id` resume, project aliases, timeouts, MCP toggles
 
 ---
 
@@ -56,73 +183,9 @@ For modes, non-interactive `-p`, sessions, etc., see the [official CLI overview]
 
 | Requirement | Notes |
 |-------------|--------|
-| **Cursor Agent CLI** | See **[Prerequisite: Install Cursor Agent](#cursor-cli-prerequisite)**. Without it, this plugin cannot run. |
-| **Hermes** | Hermes plugin runtime; uses `from hermes_constants import get_hermes_home`. |
+| **Cursor Agent CLI** | See [Prerequisite](#prerequisite-install-cursor-agent-cli). |
+| **Hermes** | Plugin runtime uses `from hermes_constants import get_hermes_home`. |
 | **Account** | Cursor subscription / login via CLI (e.g. `agent login`). |
-
----
-
-## Install (one command)
-
-### Windows (PowerShell / CMD)
-
-From this repo root (where `install.bat` lives):
-
-```cmd
-install.bat
-```
-
-### Linux / macOS
-
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-### What the scripts do
-
-1. Copy plugin files to **`%USERPROFILE%\.hermes\plugins\cursor-agent`** (Windows) or **`$HOME/.hermes/plugins/cursor-agent`** (Linux/macOS). If **`HERMES_HOME`** is set, it uses that as the Hermes home.
-2. If **`cursor_agent.json` does not exist**, copy **`cursor_agent.example.json`** to **`~/.hermes/cursor_agent.json`** (or **`$HERMES_HOME/cursor_agent.json`**). **Existing files are not overwritten.**
-3. Remind you to **restart** the Hermes Gateway / CLI.
-
----
-
-## Where to put `cursor_agent.json`
-
-**Important:** Not inside `plugins/`—place it under the Hermes **user home** root.
-
-| Platform | Path |
-|----------|------|
-| Windows | **`%USERPROFILE%\.hermes\cursor_agent.json`** |
-| Linux / macOS | **`~/.hermes/cursor_agent.json`** |
-| Custom | **`$HERMES_HOME/cursor_agent.json`** if you use **`HERMES_HOME`** |
-
-Do **not** put it under `plugins/cursor-agent/`; the plugin reads `get_hermes_home() / "cursor_agent.json"`.
-
----
-
-## `cursor_agent.json` fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| **`projects`** | object | Alias → **absolute path** to repo. |
-| **`default_timeout_sec`** | number | Total run timeout (seconds). |
-| **`no_output_timeout_sec`** | number | Stall timeout (seconds). |
-| **`enable_mcp`** | bool | Pass `--approve-mcps --force` (set `false` if your CLI rejects these flags). |
-| **`max_concurrent`** | number | Max concurrent runs in the plugin. |
-| **`model`** | string or null | `null` = CLI default; otherwise `--model`. |
-| **`prefix_args`** | string array | Inserted after the executable, before standard flags; usually **`[]`**. |
-| **`agent_path`** | string or null | Full path to `cursor` / `agent` / `Cursor.exe`; `null` = auto-detect. |
-
-Environment overrides (see `config.py`), e.g. **`HERMES_CURSOR_AGENT_BIN`** → `agent_path`.
-
----
-
-## Enable in Hermes
-
-1. Add toolset **`cursor_agent`** to your Hermes gateway config (alongside `hermes-cli`, etc., per your `config.yaml`).
-2. Run **install** and **restart** the Gateway.
-3. Ensure **`projects`** in `cursor_agent.json` points to real paths.
 
 ---
 
@@ -130,37 +193,31 @@ Environment overrides (see `config.py`), e.g. **`HERMES_CURSOR_AGENT_BIN`** → 
 
 ### 1. Electron / Chromium: `p`, `trust`, `output-format` are not known options
 
-**Cause:** Flags reached the **Electron main process** instead of the **`agent`** subcommand.
-
-**Fix:** Plugin tries to inject `agent` automatically. If it still fails, set **`"prefix_args": ["agent"]`** in `cursor_agent.json`, or set **`HERMES_CURSOR_AGENT_BIN`** to the full path of `cursor.exe` / `agent` (Gateway PATH may be shorter than your interactive shell).
+Flags reached **Electron** instead of **`agent`**. Set **`"prefix_args": ["agent"]`** in `cursor_agent.json`, or **`HERMES_CURSOR_AGENT_BIN`** to the full path of `Cursor.exe` / `agent`.
 
 ### 2. Windows `.cmd` / argument loss
 
-The plugin uses **`cmd.exe /c`** with **`shell=False`** for `.cmd`/`.bat`. Use the **latest** plugin code.
+Use the **latest** plugin; it runs batch files via **`cmd.exe /c`** with **`shell=False`**.
 
 ### 3. `session_id` is null, no stream-json
 
-Often **encoding**: plugin forces **UTF-8** for subprocess pipes. If it still fails, confirm **`agent`** works locally; check logs for **`cursor_agent spawn argv:`** and ensure **`agent`** and **`-p`** appear.
+Confirm **`agent`** works locally; check logs for **`cursor_agent spawn argv:`** (must include **`agent`** and **`-p`**).
 
-### 4. Wrong config path
+### 4. Wrong `cursor_agent.json` path
 
 Use **`~/.hermes/cursor_agent.json`**, not under `plugins/`.
 
-### 5. Config changes ignored
+### 5. Tool never appears
 
-**Restart** the Gateway after edits.
+Ensure **`cursor_agent`** is in **`platform_toolsets`** for your platform and **restart** the Gateway.
 
-### 6. Only `cursor` on PATH
+### 6. Standalone `agent` + `prefix_args`
 
-If the official install provides **`agent`**, prefer that; otherwise the plugin builds `cursor` + `agent` + args.
+If PATH points to a **standalone `agent`**, do **not** set **`"prefix_args": ["agent"]`** (would become `agent agent …`).
 
-### 7. Standalone `agent` + `prefix_args`
+### 7. Default `mode`
 
-If your PATH already points to a **standalone `agent`**, do **not** set **`"prefix_args": ["agent"]`** (would become `agent agent …`).
-
-### 8. Default `mode`
-
-Default tool **`mode`** is **`agent`** (matches Cursor CLI). Use **`ask`** for read-only analysis.
+Default tool **`mode`** is **`agent`**. Use **`ask`** for read-only analysis.
 
 ---
 
@@ -168,8 +225,8 @@ Default tool **`mode`** is **`agent`** (matches Cursor CLI). Use **`ask`** for r
 
 ```
 hermes-cursor-agent-plugin/
-  README.md                 # English (default)
-  README.zh-CN.md           # Chinese
+  README.md
+  README.zh-CN.md
   LICENSE
   plugin.yaml
   __init__.py
@@ -190,8 +247,7 @@ hermes-cursor-agent-plugin/
 ## References
 
 - [Cursor CLI overview](https://cursor.com/cn/docs/cli/overview)
-- Plugin repo: [hermes-cursor-agent-plugin](https://github.com/hjcenry/hermes-cursor-agent-plugin)
-- Install this directory to `~/.hermes/plugins/cursor-agent` for Hermes
+- [hermes-cursor-agent-plugin](https://github.com/hjcenry/hermes-cursor-agent-plugin) on GitHub
 
 ---
 
@@ -203,4 +259,4 @@ MIT — see [LICENSE](./LICENSE).
 
 ### SSH / `known_hosts` note
 
-Adding GitHub’s **host** public key to `~/.ssh/known_hosts` only tells SSH to trust GitHub’s server fingerprint. It does **not** change, replace, or share your **private** key. The same SSH private key continues to work for **all** repositories and hosts you use it with.
+Adding GitHub’s **host** public key to `~/.ssh/known_hosts` only verifies the server fingerprint. It does **not** change your **private** SSH key; the same key works for all repositories.
