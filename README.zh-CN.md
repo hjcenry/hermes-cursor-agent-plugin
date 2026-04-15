@@ -251,3 +251,9 @@ MIT，见 [LICENSE](./LICENSE)。
 ### 关于 SSH 与 `known_hosts`
 
 向 `known_hosts` 追加的是 **GitHub 服务器主机公钥**，用于校验连接对象，**不会**修改你的 **SSH 私钥**；同一把密钥仍可用于所有仓库。
+
+---
+
+## 联系方式
+
+- **微信：** `hjcenry`

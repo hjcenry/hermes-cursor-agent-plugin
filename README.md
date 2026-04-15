@@ -260,3 +260,9 @@ MIT — see [LICENSE](./LICENSE).
 ### SSH / `known_hosts` note
 
 Adding GitHub’s **host** public key to `~/.ssh/known_hosts` only verifies the server fingerprint. It does **not** change your **private** SSH key; the same key works for all repositories.
+
+---
+
+## Contact
+
+- **WeChat:** `hjcenry`
